@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/jessestolwijk/simple-migrator"
+	"github.com/JesseStolwijk/simple-migrator"
 	"path/filepath"
 )
 
