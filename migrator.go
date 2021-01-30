@@ -112,6 +112,7 @@ func isAlreadyApplied(file string) bool {
 	return true
 }
 
+
 func assertFileNotChanged(file string) {
 	var hash string
 
@@ -127,6 +128,7 @@ func assertFileNotChanged(file string) {
 	}
 }
 
+// TODO: strip out all newlines, tabs, spaces and other invisible characters before calculating the hash
 func calculateHashForFile(file string) string {
 	f, err := os.Open(file)
 	if err != nil {
