@@ -2,8 +2,12 @@ package migrator
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,7 +31,9 @@ func Migrate(connectionString string, migrationFilesFolder string) {
 	files := getFilesInFolder(migrationFilesFolder)
 
 	for _, file := range files {
-		if !isAlreadyApplied(file) {
+		if isAlreadyApplied(file) {
+			assertFileNotChanged(file)
+		} else {
 			fmt.Println("Start applying migration " + file + " on database")
 
 			apply(file)
@@ -101,17 +107,56 @@ func getFilesInFolder(migrationFilesFolder string) []string {
 }
 
 func isAlreadyApplied(file string) bool {
-	return false
+
+
+	return true
+}
+
+func assertFileNotChanged(file string) {
+	var hash string
+
+	err := db.QueryRow(context.Background(),
+		"SELECT hash FROM migration WHERE id = $1", getId(file)).Scan(&hash)
+
+	if err != nil {
+		panic(err)
+	}
+
+	if calculateHashForFile(file) != hash {
+		panic("File " + file + " has been changed since change is applied")
+	}
+}
+
+func calculateHashForFile(file string) string {
+	f, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		log.Fatal(err)
+	}
+
+	return base64.URLEncoding.EncodeToString(h.Sum(nil))
+}
+
+func getId(file string) int64 {
+	id, err := strconv.ParseInt(strings.Split(filepath.Base(file), "_")[0], 10, 32)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return id
 }
 
 func apply(file string) {
 
 	fileName := filepath.Base(file)
-	id, err := strconv.ParseInt(strings.Split(fileName, "_")[0], 10, 32)
+	id := getId(fileName)
 
-	if err != nil {
-		panic(err)
-	}
 
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -135,7 +180,7 @@ func apply(file string) {
 
 	_, err = tx.Exec(context.Background(),
 		"INSERT INTO migration (id, file_name, executed_at, hash) VALUES ($1, $2, $3, $4);",
-		id, fileName, time.Now().Unix(), "hash")
+		id, fileName, time.Now().Unix(), calculateHashForFile(file))
 
 	if err != nil {
 		panic(err)
