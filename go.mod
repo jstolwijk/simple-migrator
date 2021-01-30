@@ -1,4 +1,4 @@
-module github.com/JesseStolwijk/simple-migrator
+module github.com/jstolwijk/simple-migrator
 
 go 1.15
 
