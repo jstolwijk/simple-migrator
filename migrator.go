@@ -30,6 +30,8 @@ func Migrate(connectionString string, migrationFilesFolder string) {
 
 	files := getFilesInFolder(migrationFilesFolder)
 
+	var appliedAMigration bool
+
 	for _, file := range files {
 		if isAlreadyApplied(file) {
 			assertFileNotChanged(file)
@@ -38,8 +40,15 @@ func Migrate(connectionString string, migrationFilesFolder string) {
 
 			apply(file)
 
+			appliedAMigration = true
 			fmt.Println("Applied migration " + file + " on database")
 		}
+	}
+
+	if appliedAMigration {
+		fmt.Println("Migration succeeded")
+	} else {
+		fmt.Println("Nothing to migrate")
 	}
 }
 
@@ -92,10 +101,7 @@ func setupDatabaseConnection(connectionString string) {
 func getFilesInFolder(migrationFilesFolder string) []string {
 	pattern := filepath.Join(migrationFilesFolder, "*.sql")
 
-	fmt.Println(pattern)
-
 	files, err := filepath.Glob(pattern)
-	fmt.Println(files)
 
 	if err != nil {
 		panic(err)
@@ -107,9 +113,16 @@ func getFilesInFolder(migrationFilesFolder string) []string {
 }
 
 func isAlreadyApplied(file string) bool {
+	var exists bool
 
+	err := db.QueryRow(context.Background(),
+		"SELECT EXISTS (SELECT id FROM migration WHERE id = $1)", getId(file)).Scan(&exists)
 
-	return true
+	if err != nil {
+		panic(err)
+	}
+
+	return exists
 }
 
 
